@@ -5,7 +5,7 @@ import bitarray
 import os
 import numpy as np
 
-CONST_BYTES_TO_GENERATE = 10
+CONST_BYTES_TO_GENERATE = 5000
 CONST_BATCH_SIZE = 2
 assert(CONST_BYTES_TO_GENERATE % CONST_BATCH_SIZE == 0)
 CONST_NO_OF_BATCHES = int(CONST_BYTES_TO_GENERATE / CONST_BATCH_SIZE);
@@ -69,18 +69,23 @@ def main():
     byte_array, results = getDataAndResutls()
 
     byte_array = byteArrayToBitTensor(byte_array)
-    print(byte_array)
     results = byteArrayToBitTensor(results)
 
-    training_idx = int(CONST_BYTES_TO_GENERATE * 0.8)
+    training_idx = int(len(byte_array) * 0.8)
 
     test_input, train_input = byte_array[:training_idx], byte_array[training_idx:]
     test_output, train_output = results[:training_idx], results[training_idx:]
 
-    data = tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE])  # Number of examples, number of input, dimension of each input
+
+    #data = tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE])  # Number of examples, number of input, dimension of each input
+    data = []
+    for _ in range(0, len(train_input)):
+        data.append(tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE]))
+
     target = tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE])
 
     lstm = tf.nn.rnn_cell.BasicLSTMCell(CONST_NUM_OF_HIDDEN_STATES)
+
     val, state = tf.nn.rnn(lstm, data, dtype=tf.bool)
     #val, state = tf.nn.dynamic_rnn(lstm, data, dtype=tf.bool)
     #val = tf.transpose(val, [1, 0, 2])
