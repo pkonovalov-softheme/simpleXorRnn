@@ -1,8 +1,4 @@
 import tensorflow as tf
-# from tensorflow.models.rnn import rnn
-
-import bitarray
-import os
 import numpy as np
 
 CONST_BYTES_TO_GENERATE = 5000
@@ -13,12 +9,6 @@ CONST_INPUT_OTPUT_SIZE = 8  # 8 bits in byte
 CONST_NUM_OF_HIDDEN_STATES = 24
 
 CONST_EPOCH = 1
-
-
-def byteToBitsArray(byte):
-    for i in range(8):
-        yield (byte >> i) & 1
-
 
 def getDataAndResutls():
     byte_array = np.array(bytearray(os.urandom(CONST_BYTES_TO_GENERATE)))
@@ -47,23 +37,12 @@ def byteArrayToBitTensor(byteArray):
 
             for curBitInByte in range(8):
                 curBit = (curByte >> curBitInByte) & 1
-                curTensor[curIdInsideBatch, curBitInByte] = bool(curBit)
+                curTensor[curIdInsideBatch, curBitInByte] = curBit
 
         resultList.append(curTensor)
 
     return resultList
 
-    # bits = np.unpackbits(byteArray)
-    # #assert(len(bits) %  8 == 0)
-    # assert(len(bits) == CONST_BYTES_TO_GENERATE * 8)
-    # assert(len(bits) % CONST_BATCH_SIZE == 0)
-    # assert(len(bits) % 8 == 0)
-    #
-    # print(len(bits))
-    # #nputSize = len(bits) / 8
-    # bitTensor = np.reshape(bits, (CONST_BATCH_SIZE, 8, -1))
-    # print(bitTensor)
-    # return bitTensor.astype(bool)
 
 def main():
     byte_array, results = getDataAndResutls()
@@ -77,23 +56,23 @@ def main():
     test_output, train_output = results[:training_idx], results[training_idx:]
 
 
-    #data = tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE])  # Number of examples, number of input, dimension of each input
     data = []
     for _ in range(0, len(train_input)):
-        data.append(tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE]))
+        data.append(tf.placeholder(tf.float32, [CONST_BATCH_SIZE, CONST_INPUT_OTPUT_SIZE]))
 
-    target = tf.placeholder(tf.bool, [None, CONST_INPUT_OTPUT_SIZE])
 
     lstm = tf.nn.rnn_cell.BasicLSTMCell(CONST_NUM_OF_HIDDEN_STATES)
 
-    val, state = tf.nn.rnn(lstm, data, dtype=tf.bool)
-    #val, state = tf.nn.dynamic_rnn(lstm, data, dtype=tf.bool)
-    #val = tf.transpose(val, [1, 0, 2])
+    val, state = tf.nn.rnn(lstm, data, dtype=tf.float32)
 
-    weight = tf.Variable(tf.truncated_normal([CONST_NUM_OF_HIDDEN_STATES, int(target.get_shape()[1])]))
-    bias = tf.Variable(tf.constant(0.1, shape=[target.get_shape()[1]]))
+    weight = tf.Variable(tf.zeros([CONST_NUM_OF_HIDDEN_STATES, CONST_INPUT_OTPUT_SIZE]))
 
-    prediction = tf.nn.softmax(tf.matmul(val, weight) + bias)
+    bias = tf.Variable(tf.zeros([CONST_INPUT_OTPUT_SIZE]))
+    mult = tf.matmul(val, weight)
+    prediction = tf.nn.softmax(mult + bias)
+
+    target = tf.placeholder(tf.float32, [None, CONST_INPUT_OTPUT_SIZE])
+
     cross_entropy = -tf.reduce_sum(target * tf.log(prediction))
 
     optimizer = tf.train.AdamOptimizer()
@@ -109,13 +88,6 @@ def main():
     print(train_input)
     for i in range(CONST_EPOCH):
         sess.run(minimize, {data: train_input, target: train_output})
-        # ptr = 0
-        # for j in range(CONST_NO_OF_BATCHES):
-        #     inp, out = train_input[ptr:ptr + CONST_BATCH_SIZE], train_output[ptr:ptr + CONST_BATCH_SIZE]
-        #     ptr += CONST_BATCH_SIZE
-        #     sess.run(minimize, {data: inp, target: out})
-        # print
-        # "Epoch - ", str(i)
     incorrect = sess.run(error, {data: test_input, target: test_output})
     print('Epoch {:2d} error {:3.1f}%'.format(i + 1, 100 * incorrect))
     sess.close()
