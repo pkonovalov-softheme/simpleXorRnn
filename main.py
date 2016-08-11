@@ -1,10 +1,14 @@
 import tensorflow as tf
 import numpy as np
+import os
 
 CONST_BYTES_TO_GENERATE = 5000
 CONST_BATCH_SIZE = 2
 assert(CONST_BYTES_TO_GENERATE % CONST_BATCH_SIZE == 0)
 CONST_NO_OF_BATCHES = int(CONST_BYTES_TO_GENERATE / CONST_BATCH_SIZE);
+print("CONST_NO_OF_BATCHES")
+print(CONST_NO_OF_BATCHES)
+
 CONST_INPUT_OTPUT_SIZE = 8  # 8 bits in byte
 CONST_NUM_OF_HIDDEN_STATES = 24
 
@@ -56,22 +60,29 @@ def main():
     test_output, train_output = results[:training_idx], results[training_idx:]
 
 
-    data = []
-    for _ in range(0, len(train_input)):
-        data.append(tf.placeholder(tf.float32, [CONST_BATCH_SIZE, CONST_INPUT_OTPUT_SIZE]))
+    # data = []
+    # for _ in range(0, len(train_input)):
+    #     data.append(tf.placeholder(tf.float32, [CONST_BATCH_SIZE, CONST_INPUT_OTPUT_SIZE]))
 
-
+    data = [tf.placeholder(tf.float32, [CONST_BATCH_SIZE, CONST_INPUT_OTPUT_SIZE]) for _ in range(len(train_input))]
     lstm = tf.nn.rnn_cell.BasicLSTMCell(CONST_NUM_OF_HIDDEN_STATES)
 
     val, state = tf.nn.rnn(lstm, data, dtype=tf.float32)
+    print("Val")
+    print(val[0].get_shape())
+    print(len(val))
 
     weight = tf.Variable(tf.zeros([CONST_NUM_OF_HIDDEN_STATES, CONST_INPUT_OTPUT_SIZE]))
 
+    for i in val:
+        mult = tf.matmul(i, weight)
+
     bias = tf.Variable(tf.zeros([CONST_INPUT_OTPUT_SIZE]))
-    mult = tf.matmul(val, weight)
+
     prediction = tf.nn.softmax(mult + bias)
 
-    target = tf.placeholder(tf.float32, [None, CONST_INPUT_OTPUT_SIZE])
+    #target = tf.placeholder(tf.float32, [None, CONST_INPUT_OTPUT_SIZE])
+    target = [tf.placeholder(tf.float32, [None, CONST_INPUT_OTPUT_SIZE]) for _ in range(len(train_output))]
 
     cross_entropy = -tf.reduce_sum(target * tf.log(prediction))
 
@@ -85,14 +96,15 @@ def main():
     sess = tf.Session()
     sess.run(init_op)
 
-    print(train_input)
     for i in range(CONST_EPOCH):
-        sess.run(minimize, {data: train_input, target: train_output})
+        #sess.run(minimize, {data: train_input, target: train_output})
+        dict = {i: d for i, d in zip(data, train_input)}
+        dict2 = {i: d for i, d in zip(target, train_output)}
+        feed = {**dict, **dict2}
+        sess.run(minimize, feed_dict= feed)
     incorrect = sess.run(error, {data: test_input, target: test_output})
     print('Epoch {:2d} error {:3.1f}%'.format(i + 1, 100 * incorrect))
     sess.close()
-
-    print(len(results))
 
 
 if __name__ == "__main__":
